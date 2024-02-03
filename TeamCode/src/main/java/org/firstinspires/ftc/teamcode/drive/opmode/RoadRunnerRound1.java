@@ -33,12 +33,8 @@ import com.acmerobotics.roadrunner.geometry.Pose2d;
 import com.acmerobotics.roadrunner.geometry.Vector2d;
 import com.acmerobotics.roadrunner.trajectory.Trajectory;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
 
@@ -56,10 +52,10 @@ import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
  */
 
-@Autonomous(name="RoadRunnerMark1", group="Linear OpMode")
+@Autonomous(name="RoadRunnerRound1", group="Linear OpMode")
 
 //@Disabled
-public class WorldChampionshipAuto extends LinearOpMode {
+public class RoadRunnerRound1 extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);
@@ -69,20 +65,20 @@ public class WorldChampionshipAuto extends LinearOpMode {
 
         drive.setPoseEstimate(startPose);
 
-        Trajectory traj1 = drive.trajectoryBuilder(startPose)
+        Trajectory traj1 = drive.trajectoryBuilder(new Pose2d(0,0))
                 .splineTo(new Vector2d(25, 25), 0)
                 .build();
 
-        Trajectory traj2 = drive.trajectoryBuilder(startPose)
+        Trajectory traj2 = drive.trajectoryBuilder(new Pose2d(0,0))
                 .splineTo(new Vector2d(-25, 25), 0)
                 .build();
 
-        Trajectory traj3 = drive.trajectoryBuilder(startPose)
+        Trajectory traj3 = drive.trajectoryBuilder(new Pose2d(0,0))
                 .forward(10)
                 .build();
 
         // strafeRight(10) cannot be included in traj3 as it throws a PathContinuityException
-        Trajectory traj4 = drive.trajectoryBuilder(startPose)
+        Trajectory traj4 = drive.trajectoryBuilder(new Pose2d(0,0))
                 .strafeRight(5)
                 .build();
 
