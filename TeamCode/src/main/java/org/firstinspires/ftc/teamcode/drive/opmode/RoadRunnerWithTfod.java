@@ -1,40 +1,15 @@
-/* Copyright (c) 2019 FIRST. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted (subject to the limitations in the disclaimer below) provided that
- * the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this list
- * of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice, this
- * list of conditions and the following disclaimer in the documentation and/or
- * other materials provided with the distribution.
- *
- * Neither the name of FIRST nor the names of its contributors may be used to endorse or
- * promote products derived from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY THIS
- * LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
+//import libraries
 package org.firstinspires.ftc.teamcode.drive.opmode;
 
+//import roadrunner library
 import com.acmerobotics.roadrunner.geometry.Pose2d;
 import com.acmerobotics.roadrunner.geometry.Vector2d;
 import com.acmerobotics.roadrunner.trajectory.Trajectory;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.Servo;
 
+//import vision library
 import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
@@ -46,11 +21,10 @@ import java.util.List;
 
 
 /*
- * This OpMode illustrates the basics of TensorFlow Object Detection,
- * including Java Builder structures for specifying Vision parameters.
- *
- * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
- * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list.
+ This OpMode detects the position of a the Blue Team Prop
+ Then moves to drop a pixel on the corresponding spot
+ Then Parks in the Side
+ Positions are set for blue side
  */
 @Autonomous(name = "RoadRunnerWithTfod", group = "Linear OpMode")
 //@Disabled
@@ -60,13 +34,13 @@ public class RoadRunnerWithTfod extends LinearOpMode {
 
     // TFOD_MODEL_ASSET points to a model file stored in the project Asset location,
     // this is only used for Android Studio when using models in Assets.
-    private static final String TFOD_MODEL_ASSET = "RedProp.tflite";
+    private static final String TFOD_MODEL_ASSET = "BlueTeamProp.tflite";
     // TFOD_MODEL_FILE points to a model file stored onboard the Robot Controller's storage,
     // this is used when uploading models directly to the RC using the model upload interface.
     // private static final String TFOD_MODEL_FILE = "/sdcard/FIRST/tflitemodels/myCustomModel.tflite";
     // Define the labels recognized in the model for TFOD (must be in training order!)
     private static final String[] LABELS = {
-            "Red Prop",
+            "Blue Team Prop",
     };
 
     /**
@@ -79,22 +53,26 @@ public class RoadRunnerWithTfod extends LinearOpMode {
      */
     private VisionPortal visionPortal;
 
-    boolean objectDetected = false;
+    boolean isProp = false;
 
-    double x = 0;
-    double y = 0;
+    // position of prop in frame
+    double propLocation = 0;
 
+    // prop is left, right, or center
     double propPose = 0;
 
     @Override
     public void runOpMode() throws InterruptedException {
 
         Pose2d startPose = new Pose2d(-60, 13, 0);
+
         SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);
+
+        Servo pixelDropServo = hardwareMap.get(Servo.class, "pixelDropServo");
 
         drive.setPoseEstimate(startPose);
 
-        Trajectory scoringPositionTraj = drive.trajectoryBuilder(new Pose2d())
+        Trajectory scoringPositionTraj = drive.trajectoryBuilder(startPose)
                 .forward(27)
                 .build();
 
@@ -132,44 +110,59 @@ public class RoadRunnerWithTfod extends LinearOpMode {
         if (isStopRequested())
             return;
 
-        drive.followTrajectory(scoringPositionTraj);
-
         resetRuntime();
-        while(getRuntime() < 10 && !objectDetected){
+        while(getRuntime() < 5 && !isProp){
             telemetryTfod();
-            isTfodDetected();
-            }
-        telemetryTfod();
-
-        visionPortal.stopStreaming();
-        //sets propPose depending on position of prop in camera
-        // 1 = left, 2 = center, 3 = right
-        if (x < 213) {
-            propPose = 1;
-
-        } else if (x < 426) {
-            propPose = 2;
-
-        } else if(x > 426){
-            propPose = 3;
 
         }
-        if (propPose == 1) {
-            drive.followTrajectory(spikeLeftTraj);
-            drive.followTrajectory(preparkFromLeftTraj);
 
-        } else if (propPose == 2) {
-            drive.followTrajectory(spikeCenterTraj);
-            drive.followTrajectory(preparkFromCenterTraj);
+        drive.followTrajectory(scoringPositionTraj);
 
-        } else if (propPose == 3) {
-            drive.followTrajectory(spikeRightTraj);
-            drive.followTrajectory(preparkFromRightTraj);
+        tfod.shutdown();
+
+        if (isProp) {
+
+            //sets propPose depending on position of prop in camera
+            // 1 = left, 2 = center, 3 = right
+            if (propLocation <= 213) {
+                propPose = 1;
+
+            } else if (propLocation <= 426) {
+                propPose = 2;
+
+            } else if (propLocation > 426) {
+                propPose = 3;
+
+            }
+
+            if (propPose == 1) {
+                drive.followTrajectory(spikeLeftTraj);
+                sleep(500);
+                pixelDropServo.setPosition(0);
+                sleep(500);
+                drive.followTrajectory(preparkFromLeftTraj);
+
+            } else if (propPose == 2) {
+                drive.followTrajectory(spikeCenterTraj);
+                sleep(500);
+                pixelDropServo.setPosition(0);
+                sleep(500);
+                drive.followTrajectory(preparkFromCenterTraj);
+
+            } else if (propPose == 3) {
+                drive.followTrajectory(spikeRightTraj);
+                sleep(500);
+                pixelDropServo.setPosition(0);
+                sleep(500);
+                drive.followTrajectory(preparkFromRightTraj);
+            }
         }
 
         drive.followTrajectory(finalPark);
 
-        } // end runOpMode()
+        requestOpModeStop();
+
+    } // end runOpMode()
 
     /**
      * Initialize the TensorFlow Object Detection processor.
@@ -228,26 +221,20 @@ public class RoadRunnerWithTfod extends LinearOpMode {
 
         // Step through the list of recognitions and display info for each one.
         for (Recognition recognition : currentRecognitions) {
-            x = (recognition.getLeft() + recognition.getRight()) / 2;
-            y = (recognition.getTop() + recognition.getBottom()) / 2;
+            double x = (recognition.getLeft() + recognition.getRight()) / 2;
+            double y = (recognition.getTop() + recognition.getBottom()) / 2;
 
             telemetry.addData("", " ");
             telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100);
             telemetry.addData("- Position", "%.0f / %.0f", x, y);
             telemetry.addData("- Size", "%.0f x %.0f", recognition.getWidth(), recognition.getHeight());
+
+            if (recognition.getLabel().equals("Blue Team Prop")) {
+                isProp = true;
+                propLocation = (recognition.getLeft() + recognition.getRight()) / 2;
+            } // end if(recognitions = "Blue Team Prop")
         }   // end for() loop
 
     }   // end method telemetryTfod()
-
-    private void isTfodDetected() {
-
-        List<Recognition> detections = tfod.getRecognitions();
-
-        if (detections.size() > 0) {
-            objectDetected = true;
-        }
-
-
-    } // end method isTfodDetected
 
 } // end linear opMode
